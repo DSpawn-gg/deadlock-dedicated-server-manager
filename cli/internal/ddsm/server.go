@@ -1,3 +1,5 @@
+//go:build linux
+
 package ddsm
 
 import (
@@ -114,24 +116,7 @@ echo "Starting Deadworks server: ${CMD}"
 exec ${CMD}
 `
 
-type ServerCreateOpts struct {
-	Name       string
-	Port       int
-	Map        string
-	Password   string
-	SteamLogin string
-	SteamPass  string
-	Steam2FA   string
-}
 
-type ServerStatus struct {
-	ServerRow
-	Status     string
-	StartedAt  string
-	Stats      *ContainerStats
-	Players    int
-	MaxPlayers int
-}
 
 func CreateServer(opts ServerCreateOpts) (*ServerRow, error) {
 	id := uuid.New().String()

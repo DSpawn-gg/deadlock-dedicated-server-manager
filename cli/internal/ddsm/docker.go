@@ -1,3 +1,5 @@
+//go:build linux
+
 package ddsm
 
 import (
@@ -26,18 +28,7 @@ func DockerClient() *client.Client {
 	return dockerClient
 }
 
-type ContainerInfo struct {
-	ID        string
-	Status    string
-	State     string
-	StartedAt string
-}
 
-type ContainerStats struct {
-	CPUPercent    float64
-	MemoryMB      float64
-	MemoryLimitMB float64
-}
 
 func GetContainerInfo(containerID string) (*ContainerInfo, error) {
 	ctx := context.Background()
