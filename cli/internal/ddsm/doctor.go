@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/docker/docker/api/types/image"
 )
@@ -53,14 +52,13 @@ func checkImage() CheckResult {
 }
 
 func checkDiskSpace() CheckResult {
-	var stat syscall.Statfs_t
-	if err := syscall.Statfs(Cfg.ServersDir, &stat); err != nil {
+	freeGB, err := getDiskFreeGB(Cfg.ServersDir)
+	if err != nil {
 		if os.IsNotExist(err) {
 			return CheckResult{"Disk space", "warn", fmt.Sprintf("Servers dir '%s' does not exist yet", Cfg.ServersDir)}
 		}
 		return CheckResult{"Disk space", "fail", fmt.Sprintf("Cannot stat: %v", err)}
 	}
-	freeGB := float64(stat.Bavail*uint64(stat.Bsize)) / 1024 / 1024 / 1024
 	if freeGB < 5 {
 		return CheckResult{"Disk space", "warn", fmt.Sprintf("%.1f GB free at %s (recommend 5+ GB)", freeGB, Cfg.ServersDir)}
 	}
