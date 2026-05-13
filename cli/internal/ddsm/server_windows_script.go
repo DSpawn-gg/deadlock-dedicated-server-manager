@@ -66,6 +66,7 @@ if (-not (Test-Path $EXE)) {
 $ARGS = @(
     "-dedicated",
     "-usercon",
+    "-insecure",
     "-ip", "0.0.0.0",
     "-convars_visible_by_default",
     "-allow_no_lobby_connect",
@@ -73,6 +74,7 @@ $ARGS = @(
     "-port", "%d",
     "+map", "%s",
     "+rcon_password", "ddsm_rcon_secret",
+    "+sv_cheats", "0",
     "+tv_enable", "0",
     "+citadel_upload_replay_enabled", "0",
     "+tv_citadel_auto_record", "0",
