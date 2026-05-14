@@ -22,6 +22,7 @@
 import { spawn, execFile } from "child_process";
 import { promisify } from "util";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { Readable } from "stream";
 import { SERVERS_DIR } from "./config";
@@ -352,6 +353,7 @@ export async function startContainer(containerId: string): Promise<void> {
 function bustCaches(slotId: string) {
   infoCache.delete(slotId);
   statsCache.delete(slotId);
+  cpuSamples.delete(slotId);
 }
 
 export async function stopContainer(containerId: string): Promise<void> {
@@ -399,6 +401,14 @@ const infoCache = new Map<string, CacheEntry<ContainerInfo | null>>();
 const statsCache = new Map<string, CacheEntry<ContainerStats | null>>();
 const INFO_CACHE_MS = 2000;
 const STATS_CACHE_MS = 5000;
+
+// Per-slot CPU sample for delta-based % calculation. Keyed by slotId.
+// pid is tracked so a process restart invalidates the sample (instead of
+// computing nonsense delta against a now-dead PID).
+interface CpuSample { pid: number; cpuTicks: number; ms: number }
+const cpuSamples = new Map<string, CpuSample>();
+const CPU_COUNT = Math.max(1, os.cpus().length);
+const TOTAL_MEMORY_MB = Math.round(os.totalmem() / 1024 / 1024);
 
 function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | undefined {
   const e = map.get(key);
@@ -448,29 +458,52 @@ export async function getContainerStats(containerId: string): Promise<ContainerS
     cacheSet(statsCache, slotId, null, STATS_CACHE_MS);
     return null;
   }
-  // Proc record now holds deadworks.exe's PID directly (not a wrapper).
-  // Use wmic for a single fast call — no powershell host startup.
+  // Sample CPU time between calls. WMI's KernelModeTime/UserModeTime are
+  // FILETIME-style 100-ns ticks of total CPU time since the process started.
+  // delta_cpu_ticks / delta_wall_ticks / cpu_count = fraction of one core,
+  // *100 = percent (relative to a single core, can exceed 100 on multi-core
+  // workloads — same convention Task Manager uses).
   try {
     const { stdout } = await execFileAsync(
       "wmic.exe",
-      ["process", "where", `ProcessId=${rec.pid}`, "get", "WorkingSetSize,KernelModeTime,UserModeTime", "/format:csv"],
+      ["process", "where", `ProcessId=${rec.pid}`, "get", "KernelModeTime,UserModeTime,WorkingSetSize", "/format:csv"],
       { timeout: 4000 },
     );
-    // CSV: Node,KernelModeTime,UserModeTime,WorkingSetSize
+    // wmic /format:csv emits columns alphabetically with Node prepended:
+    // Node, KernelModeTime, UserModeTime, WorkingSetSize
     const dataLine = stdout.split(/\r?\n/).find(l => /,\d+,\d+,\d+/.test(l));
     if (!dataLine) {
       cacheSet(statsCache, slotId, null, STATS_CACHE_MS);
       return null;
     }
     const cols = dataLine.split(",");
-    const wsBytes = parseInt(cols[cols.length - 1], 10) || 0;
-    const memoryMb = Math.round(wsBytes / 1024 / 1024);
-    // CPU% needs a delta over time which we don't track here; report 0 to
-    // keep the contract stable. (Future: sample twice over 1s and compute.)
+    const kernelTicks = parseInt(cols[1], 10) || 0;
+    const userTicks = parseInt(cols[2], 10) || 0;
+    const wsBytes = parseInt(cols[3], 10) || 0;
+    const cpuTicksNow = kernelTicks + userTicks;
+    const nowMs = Date.now();
+
+    let cpuPercent = 0;
+    const prev = cpuSamples.get(slotId);
+    if (prev && prev.pid === rec.pid) {
+      const deltaTicks = cpuTicksNow - prev.cpuTicks; // 100-ns each
+      const deltaMs = nowMs - prev.ms;
+      if (deltaTicks > 0 && deltaMs > 0) {
+        // 1 ms = 10000 100-ns ticks. So cpu_ms_used = deltaTicks / 10000.
+        const cpuMs = deltaTicks / 10000;
+        cpuPercent = (cpuMs / deltaMs / CPU_COUNT) * 100;
+        // Clamp to [0, 100*cpus] just in case wmic returns a slightly stale
+        // sample that produces nonsense.
+        if (cpuPercent < 0) cpuPercent = 0;
+        if (cpuPercent > 100 * CPU_COUNT) cpuPercent = 100 * CPU_COUNT;
+      }
+    }
+    cpuSamples.set(slotId, { pid: rec.pid, cpuTicks: cpuTicksNow, ms: nowMs });
+
     const result: ContainerStats = {
-      cpuPercent: 0,
-      memoryMb,
-      memoryLimitMb: 0,
+      cpuPercent: Math.round(cpuPercent * 10) / 10,
+      memoryMb: Math.round(wsBytes / 1024 / 1024),
+      memoryLimitMb: TOTAL_MEMORY_MB,
     };
     cacheSet(statsCache, slotId, result, STATS_CACHE_MS);
     return result;
