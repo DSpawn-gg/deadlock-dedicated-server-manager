@@ -26,6 +26,8 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<{ kind: "idle" | "ok" | "error"; msg: string }>({ kind: "idle", msg: "" });
+  const [dragActive, setDragActive] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ name: string; size: number } | null>(null);
 
   async function refreshMaps() {
     const r = await fetch(`/api/servers/${id}/maps`);
@@ -56,14 +58,22 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     });
   }
 
+  function formatBytes(b: number): string {
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
+    return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  }
+
   async function handleUpload(file: File) {
     if (!/^[A-Za-z0-9_]+\.vpk$/.test(file.name)) {
-      setUploadStatus({ kind: "error", msg: `filename must match ^[A-Za-z0-9_]+\\.vpk$ — rename "${file.name}" first` });
+      setUploadStatus({ kind: "error", msg: `Filename must match ^[A-Za-z0-9_]+\\.vpk$ — rename "${file.name}" first` });
       return;
     }
     setUploading(true);
     setUploadProgress(0);
-    setUploadStatus({ kind: "idle", msg: `Uploading ${file.name} (${Math.round(file.size / 1024 / 1024)} MB)…` });
+    setPendingFile({ name: file.name, size: file.size });
+    setUploadStatus({ kind: "idle", msg: "" });
 
     try {
       await uploadFile(file, false);
@@ -87,8 +97,17 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
       }
     } finally {
       setUploading(false);
+      setPendingFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }
+
+  function onDropFiles(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragActive(false);
+    if (uploading) return;
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleUpload(f);
   }
 
   function parseError(err: any): string {
@@ -195,8 +214,8 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
           </div>
         </div>
 
-        <div className="border border-dashed border-neutral-700 rounded p-3">
-          <label className={labelClass}>Upload Map (.vpk)</label>
+        <div>
+          <label className={labelClass}>Upload Map</label>
           <input
             ref={fileInputRef}
             type="file"
@@ -206,40 +225,106 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
               const f = e.target.files?.[0];
               if (f) handleUpload(f);
             }}
-            className="block w-full text-sm text-neutral-300
-                       file:mr-3 file:py-1.5 file:px-3 file:rounded
-                       file:border-0 file:bg-neutral-800 file:text-neutral-100
-                       hover:file:bg-neutral-700 file:cursor-pointer
-                       cursor-pointer disabled:opacity-50"
+            className="hidden"
           />
-          {uploading && (
-            <div className="mt-2">
-              <div className="h-1.5 bg-neutral-800 rounded overflow-hidden">
-                <div
-                  style={{ width: `${uploadProgress}%` }}
-                  className="h-full bg-gradient-to-r from-[#eb3449] to-[#c42a3b] transition-[width] duration-150"
+          <motion.div
+            onClick={() => !uploading && fileInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragActive(true); }}
+            onDragEnter={(e) => { e.preventDefault(); if (!uploading) setDragActive(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setDragActive(false); }}
+            onDrop={onDropFiles}
+            whileHover={!uploading ? { scale: 1.005 } : {}}
+            whileTap={!uploading ? { scale: 0.995 } : {}}
+            role="button"
+            tabIndex={uploading ? -1 : 0}
+            aria-disabled={uploading}
+            className={`relative overflow-hidden rounded-lg border border-dashed transition-colors
+              ${uploading ? "cursor-default" : "cursor-pointer"}
+              ${dragActive
+                ? "border-[#eb3449] bg-[#eb3449]/5"
+                : uploading
+                  ? "border-neutral-700 bg-neutral-900/50"
+                  : "border-neutral-700 hover:border-neutral-500 hover:bg-neutral-900/40"}
+            `}
+          >
+            <div className="px-5 py-6 flex flex-col items-center text-center gap-2">
+              <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${dragActive ? "bg-[#eb3449]/20 text-[#f05c6a]" : uploading ? "bg-neutral-800 text-neutral-400" : "bg-neutral-800 text-neutral-300 group-hover:text-neutral-100"}`}>
+                {uploading ? (
+                  <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="14 28" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                )}
+              </div>
+
+              {uploading && pendingFile ? (
+                <>
+                  <p className="text-sm font-medium text-neutral-100 break-all">{pendingFile.name}</p>
+                  <p className="text-xs text-neutral-500">
+                    {formatBytes(Math.round((uploadProgress / 100) * pendingFile.size))} / {formatBytes(pendingFile.size)} — {uploadProgress}%
+                  </p>
+                </>
+              ) : dragActive ? (
+                <>
+                  <p className="text-sm font-medium text-[#f05c6a]">Drop to upload</p>
+                  <p className="text-xs text-neutral-500">Release the file here</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-neutral-100">
+                    Drop a <code className="text-[#f05c6a] font-mono">.vpk</code> here, or <span className="underline underline-offset-2">click to browse</span>
+                  </p>
+                  <p className="text-xs text-neutral-500">
+                    Streams directly to the slot. Filename must match <code className="text-neutral-400 font-mono">^[A-Za-z0-9_]+.vpk$</code>
+                  </p>
+                </>
+              )}
+            </div>
+
+            {uploading && (
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-neutral-800">
+                <motion.div
+                  initial={false}
+                  animate={{ width: `${uploadProgress}%` }}
+                  transition={{ type: "spring", stiffness: 240, damping: 30 }}
+                  className="h-full bg-gradient-to-r from-[#eb3449] to-[#c42a3b]"
                 />
               </div>
-              <p className="text-xs text-neutral-500 mt-1">{uploadProgress}%{uploadStatus.msg ? ` — ${uploadStatus.msg}` : ""}</p>
-            </div>
-          )}
+            )}
+          </motion.div>
+
           {!uploading && uploadStatus.msg && (
-            <p
-              className={`text-xs mt-2 ${
+            <motion.p
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`mt-2 text-xs flex items-center gap-1.5 ${
                 uploadStatus.kind === "error"
                   ? "text-[#f05c6a]"
                   : uploadStatus.kind === "ok"
-                  ? "text-emerald-400"
-                  : "text-neutral-500"
+                    ? "text-emerald-400"
+                    : "text-neutral-500"
               }`}
             >
+              {uploadStatus.kind === "ok" && (
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+              {uploadStatus.kind === "error" && (
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              )}
               {uploadStatus.msg}
-            </p>
+            </motion.p>
           )}
-          <p className="text-xs text-neutral-600 mt-2">
-            Streams directly to the slot. Large maps (1 GB+) supported. Filename must be{" "}
-            <code className="text-neutral-400">^[A-Za-z0-9_]+.vpk$</code>.
-          </p>
         </div>
 
         <div>
