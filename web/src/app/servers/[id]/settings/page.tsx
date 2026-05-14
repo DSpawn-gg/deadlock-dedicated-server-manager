@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
@@ -21,6 +21,85 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [maps, setMaps] = useState<string[]>(DEFAULT_MAPS);
 
+  // Upload state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<{ kind: "idle" | "ok" | "error"; msg: string }>({ kind: "idle", msg: "" });
+
+  async function refreshMaps() {
+    const r = await fetch(`/api/servers/${id}/maps`);
+    if (r.ok) {
+      const data = await r.json();
+      if (Array.isArray(data.maps) && data.maps.length > 0) setMaps(data.maps);
+    }
+  }
+
+  function uploadFile(file: File, overwrite: boolean): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject({ status: xhr.status, body: xhr.responseText });
+        }
+      };
+      xhr.onerror = () => reject({ status: 0, body: "network error" });
+      const url = `/api/servers/${id}/maps/upload?name=${encodeURIComponent(file.name)}&overwrite=${overwrite}`;
+      xhr.open("PUT", url);
+      xhr.setRequestHeader("Content-Type", "application/octet-stream");
+      xhr.send(file);
+    });
+  }
+
+  async function handleUpload(file: File) {
+    if (!/^[A-Za-z0-9_]+\.vpk$/.test(file.name)) {
+      setUploadStatus({ kind: "error", msg: `filename must match ^[A-Za-z0-9_]+\\.vpk$ — rename "${file.name}" first` });
+      return;
+    }
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadStatus({ kind: "idle", msg: `Uploading ${file.name} (${Math.round(file.size / 1024 / 1024)} MB)…` });
+
+    try {
+      await uploadFile(file, false);
+      setUploadStatus({ kind: "ok", msg: `Uploaded ${file.name}` });
+      await refreshMaps();
+    } catch (err: any) {
+      if (err?.status === 409) {
+        if (window.confirm(`${file.name} already exists. Replace it?`)) {
+          try {
+            await uploadFile(file, true);
+            setUploadStatus({ kind: "ok", msg: `Replaced ${file.name}` });
+            await refreshMaps();
+          } catch (e: any) {
+            setUploadStatus({ kind: "error", msg: parseError(e) });
+          }
+        } else {
+          setUploadStatus({ kind: "idle", msg: "" });
+        }
+      } else {
+        setUploadStatus({ kind: "error", msg: parseError(err) });
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function parseError(err: any): string {
+    try {
+      const data = JSON.parse(err?.body ?? "{}");
+      return data.error ?? `HTTP ${err?.status ?? "error"}`;
+    } catch {
+      return err?.body ?? `HTTP ${err?.status ?? "error"}`;
+    }
+  }
+
   useEffect(() => {
     fetch(`/api/servers/${id}`).then(async (r) => {
       if (r.status === 401) { router.push("/login"); return; }
@@ -34,15 +113,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     });
   }, [id]);
 
-  useEffect(() => {
-    fetch(`/api/servers/${id}/maps`).then(async (r) => {
-      if (!r.ok) return;
-      const data = await r.json();
-      if (Array.isArray(data.maps) && data.maps.length > 0) {
-        setMaps(data.maps);
-      }
-    });
-  }, [id]);
+  useEffect(() => { refreshMaps(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function update(field: string, value: string | number) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -122,6 +193,53 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
               {maps.length} map{maps.length === 1 ? "" : "s"} installed
             </p>
           </div>
+        </div>
+
+        <div className="border border-dashed border-neutral-700 rounded p-3">
+          <label className={labelClass}>Upload Map (.vpk)</label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".vpk"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleUpload(f);
+            }}
+            className="block w-full text-sm text-neutral-300
+                       file:mr-3 file:py-1.5 file:px-3 file:rounded
+                       file:border-0 file:bg-neutral-800 file:text-neutral-100
+                       hover:file:bg-neutral-700 file:cursor-pointer
+                       cursor-pointer disabled:opacity-50"
+          />
+          {uploading && (
+            <div className="mt-2">
+              <div className="h-1.5 bg-neutral-800 rounded overflow-hidden">
+                <div
+                  style={{ width: `${uploadProgress}%` }}
+                  className="h-full bg-gradient-to-r from-[#eb3449] to-[#c42a3b] transition-[width] duration-150"
+                />
+              </div>
+              <p className="text-xs text-neutral-500 mt-1">{uploadProgress}%{uploadStatus.msg ? ` — ${uploadStatus.msg}` : ""}</p>
+            </div>
+          )}
+          {!uploading && uploadStatus.msg && (
+            <p
+              className={`text-xs mt-2 ${
+                uploadStatus.kind === "error"
+                  ? "text-[#f05c6a]"
+                  : uploadStatus.kind === "ok"
+                  ? "text-emerald-400"
+                  : "text-neutral-500"
+              }`}
+            >
+              {uploadStatus.msg}
+            </p>
+          )}
+          <p className="text-xs text-neutral-600 mt-2">
+            Streams directly to the slot. Large maps (1 GB+) supported. Filename must be{" "}
+            <code className="text-neutral-400">^[A-Za-z0-9_]+.vpk$</code>.
+          </p>
         </div>
 
         <div>
