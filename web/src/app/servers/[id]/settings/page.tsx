@@ -248,13 +248,16 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
             `}
           >
             <div className="px-5 py-6 flex flex-col items-center text-center gap-2">
-              <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${dragActive ? "bg-[#eb3449]/20 text-[#f05c6a]" : uploading ? "bg-neutral-800 text-neutral-400" : "bg-neutral-800 text-neutral-300 group-hover:text-neutral-100"}`}>
+              <div
+                style={{ width: 44, height: 44 }}
+                className={`rounded-full flex items-center justify-center shrink-0 transition-colors ${dragActive ? "bg-[#eb3449]/20 text-[#f05c6a]" : uploading ? "bg-neutral-800 text-neutral-400" : "bg-neutral-800 text-neutral-300"}`}
+              >
                 {uploading ? (
-                  <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="20" height="20" className="animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="14 28" />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="17 8 12 3 7 8" />
                     <line x1="12" y1="3" x2="12" y2="15" />
@@ -299,7 +302,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
           </motion.div>
 
           {!uploading && uploadStatus.msg && (
-            <motion.p
+            <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               className={`mt-2 text-xs flex items-center gap-1.5 ${
@@ -311,19 +314,19 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
               }`}
             >
               {uploadStatus.kind === "ok" && (
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" style={{ flexShrink: 0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               )}
               {uploadStatus.kind === "error" && (
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" style={{ flexShrink: 0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               )}
-              {uploadStatus.msg}
-            </motion.p>
+              <span>{uploadStatus.msg}</span>
+            </motion.div>
           )}
         </div>
 
