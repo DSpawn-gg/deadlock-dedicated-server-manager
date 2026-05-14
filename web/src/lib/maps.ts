@@ -16,7 +16,7 @@ const MAP_FILENAME = /^([A-Za-z0-9_]+)\.vpk$/;
 // On Linux DDSM the game tree lives under `<slot>/merged/Deadlock/game`
 // (overlayfs); on Windows DDSM and on Linux plain-dir mode it's
 // `<slot>/Deadlock/game`. Try overlay first, fall back to plain.
-function deadlockGameDir(slotId: string): string {
+export function deadlockGameDir(slotId: string): string {
   const overlayed = path.join(SERVERS_DIR, slotId, "merged", "Deadlock", "game");
   if (fs.existsSync(overlayed)) return overlayed;
   return path.join(SERVERS_DIR, slotId, "Deadlock", "game");
