@@ -4,6 +4,11 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
+// Fallback list — only shown if the per-slot maps API hasn't responded yet
+// or the slot's game tree isn't populated. Once the real list loads we
+// replace it.
+const DEFAULT_MAPS = ["dl_streets", "dl_midtown", "dl_hideout"];
+
 export default function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -14,6 +19,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [maps, setMaps] = useState<string[]>(DEFAULT_MAPS);
 
   useEffect(() => {
     fetch(`/api/servers/${id}`).then(async (r) => {
@@ -25,6 +31,16 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
         steam_login: data.steam_login, steam_pass: "", steam_2fa: data.steam_2fa,
         skip_update: data.skip_update,
       });
+    });
+  }, [id]);
+
+  useEffect(() => {
+    fetch(`/api/servers/${id}/maps`).then(async (r) => {
+      if (!r.ok) return;
+      const data = await r.json();
+      if (Array.isArray(data.maps) && data.maps.length > 0) {
+        setMaps(data.maps);
+      }
     });
   }, [id]);
 
@@ -86,19 +102,25 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
           </div>
           <div>
             <label className={labelClass}>Map</label>
-            <input
-              className={inputClass}
+            <select
+              className={inputClass + " cursor-pointer"}
               value={form.map}
               onChange={(e) => update("map", e.target.value)}
-              list="known-maps"
-              placeholder="dl_streets"
               required
-            />
-            <datalist id="known-maps">
-              <option value="dl_streets" />
-              <option value="dl_midtown" />
-              <option value="dl_hideout" />
-            </datalist>
+            >
+              {/* Always include the currently-selected map as a fallback option
+                  so the select isn't visually empty if the API list hasn't
+                  arrived yet or the map was renamed/uninstalled. */}
+              {!maps.includes(form.map) && form.map && (
+                <option value={form.map}>{form.map} (not installed)</option>
+              )}
+              {maps.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-neutral-500">
+              {maps.length} map{maps.length === 1 ? "" : "s"} installed
+            </p>
           </div>
         </div>
 
