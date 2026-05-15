@@ -460,9 +460,11 @@ export async function getContainerStats(containerId: string): Promise<ContainerS
   }
   // Sample CPU time between calls. WMI's KernelModeTime/UserModeTime are
   // FILETIME-style 100-ns ticks of total CPU time since the process started.
-  // delta_cpu_ticks / delta_wall_ticks / cpu_count = fraction of one core,
-  // *100 = percent (relative to a single core, can exceed 100 on multi-core
-  // workloads — same convention Task Manager uses).
+  // delta_cpu_ticks / delta_wall_ticks = fraction of one core; *100 = percent
+  // expressed per-core (100 == one saturated core, can exceed 100 on
+  // multi-threaded bursts). Matches the Linux dockerode path's convention
+  // and `ps`/`top` style — single-threaded Source 2 sim saturating one core
+  // reads as ~100, not 100/CPU_COUNT.
   try {
     const { stdout } = await execFileAsync(
       "wmic.exe",
@@ -491,7 +493,7 @@ export async function getContainerStats(containerId: string): Promise<ContainerS
       if (deltaTicks > 0 && deltaMs > 0) {
         // 1 ms = 10000 100-ns ticks. So cpu_ms_used = deltaTicks / 10000.
         const cpuMs = deltaTicks / 10000;
-        cpuPercent = (cpuMs / deltaMs / CPU_COUNT) * 100;
+        cpuPercent = (cpuMs / deltaMs) * 100;
         // Clamp to [0, 100*cpus] just in case wmic returns a slightly stale
         // sample that produces nonsense.
         if (cpuPercent < 0) cpuPercent = 0;
