@@ -132,6 +132,43 @@ function isPidAlive(pid: number): boolean {
 // so a slot started by `ddsm.exe start` and a slot started by the dashboard
 // produce identical processes.
 
+// Parse a cpuset spec like "0,1" or "0-3,5" into a Windows ProcessorAffinity
+// bitmask plus core count. Source 2 sim is single-threaded so pinning to a
+// small set of physical cores (skipping SMT siblings) eliminates the
+// cache-thrashing cross-core migration Windows' scheduler does by default.
+// Returns null when spec is empty/invalid so callers can skip the pin.
+function parseCpuset(spec: string | undefined): { mask: string; count: number; cores: number[] } | null {
+  if (!spec || !spec.trim()) return null;
+  const cores = new Set<number>();
+  for (const part of spec.split(",")) {
+    const t = part.trim();
+    if (!t) continue;
+    const range = /^(\d+)-(\d+)$/.exec(t);
+    if (range) {
+      const lo = parseInt(range[1], 10);
+      const hi = parseInt(range[2], 10);
+      if (Number.isFinite(lo) && Number.isFinite(hi) && lo <= hi) {
+        for (let i = lo; i <= hi; i++) cores.add(i);
+      }
+    } else if (/^\d+$/.test(t)) {
+      cores.add(parseInt(t, 10));
+    }
+  }
+  const sorted = [...cores].sort((a, b) => a - b);
+  if (sorted.length === 0) return null;
+  // 64-bit bitmask via BigInt — JS bitwise ops truncate to int32. Use the
+  // BigInt() constructor instead of the `n` literal so the file compiles
+  // under target=ES2017 (Next.js default for this project's tsconfig).
+  let mask = BigInt(0);
+  const ONE = BigInt(1);
+  for (const c of sorted) {
+    if (c < 0 || c > 63) continue;
+    mask |= ONE << BigInt(c);
+  }
+  if (mask === BigInt(0)) return null;
+  return { mask: "0x" + mask.toString(16), count: sorted.length, cores: sorted };
+}
+
 function renderStartScript(volumePath: string, port: number, env: Record<string, string>): string {
   const mapName = env.MAP || "dl_streets";
   const password = env.SERVER_PASSWORD || "";
@@ -149,6 +186,35 @@ function renderStartScript(volumePath: string, port: number, env: Record<string,
   const pwLine = password
     ? '$EngineArgs += "+sv_password", "' + password.replace(/"/g, '\\"') + '"'
     : "";
+
+  // CPU affinity + Source 2 worker pool cap. Both are global-config, not per
+  // server, so they live in env vars rather than the server row.
+  //
+  // DDSM_CPUSET_CPUS: cpu list ("0,1" or "0-1"). Empty/unset = no pin.
+  // DDSM_ENGINE_THREADS: explicit override for Source 2's "-threads N" job
+  //   system worker count. If unset and a cpuset is pinned, we default to
+  //   the cpuset's core count so workers don't fan out beyond the pin.
+  const cpuset = parseCpuset(process.env.DDSM_CPUSET_CPUS);
+  const explicitThreads = process.env.DDSM_ENGINE_THREADS;
+  const threadsCount = explicitThreads && /^\d+$/.test(explicitThreads)
+    ? parseInt(explicitThreads, 10)
+    : (cpuset ? cpuset.count : 0);
+
+  const threadsLine = threadsCount > 0
+    ? '$EngineArgs += "-threads", "' + threadsCount + '"'
+    : '';
+
+  // ProcessorAffinity must be set after Start-Process -PassThru. Source 2 does
+  // ~30-60s of init before joining its hot tick loop, so a few-ms race here is
+  // fine — the sim thread is never scheduled before affinity lands.
+  const affinityLine = cpuset
+    ? 'try { $Game.ProcessorAffinity = [IntPtr]' + cpuset.mask
+      + ' ; "ddsm: pinned affinity ' + cpuset.mask
+      + ' (cores ' + cpuset.cores.join(",") + ')" '
+      + '| Out-File -Append -FilePath $LogPath -Encoding utf8 } '
+      + 'catch { "ddsm: affinity set failed: $($_.Exception.Message)" '
+      + '| Out-File -Append -FilePath $LogPath -Encoding utf8 }'
+    : '';
 
   // Built via concatenation instead of one giant template literal — keeps
   // Turbopack's TS parser from getting confused by PowerShell's `$(...)`
@@ -181,6 +247,7 @@ function renderStartScript(volumePath: string, port: number, env: Record<string,
     '    "+fps_max", "30", "-width", "640", "-height", "480", "-nojoy"',
     ')',
     pwLine,
+    threadsLine,
     '$LogPath = Join-Path $DEADLOCK_DIR "dspawn.log"',
     'Set-Location (Split-Path $EXE -Parent)',
     '"=== ddsm-web start $(Get-Date -Format o) port=' + port + ' map=' + mapName + ' exe=$EXE ===" |',
@@ -192,6 +259,8 @@ function renderStartScript(volumePath: string, port: number, env: Record<string,
     '$Game = Start-Process -FilePath $EXE -ArgumentList $EngineArgs `',
     '    -RedirectStandardOutput $LogPath -RedirectStandardError "$LogPath.err" `',
     '    -NoNewWindow -PassThru',
+    '',
+    affinityLine,
     '',
     '$rec = @{',
     '    pid = $Game.Id',
