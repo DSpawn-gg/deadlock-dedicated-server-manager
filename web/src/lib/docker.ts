@@ -536,7 +536,7 @@ class TailStream extends Readable {
   private fd: number | null = null;
   private offset = 0;
   private watcher: fs.FSWatcher | null = null;
-  private closed = false;
+  private tailClosed = false;
 
   constructor(private readonly logPath: string, private readonly tailLines: number) {
     super();
@@ -566,12 +566,12 @@ class TailStream extends Readable {
     this.flushReadable();
 
     this.watcher = fs.watch(this.logPath, () => {
-      if (!this.closed) this.flushReadable();
+      if (!this.tailClosed) this.flushReadable();
     });
   }
 
   private flushReadable() {
-    if (this.fd === null || this.closed) return;
+    if (this.fd === null || this.tailClosed) return;
     try {
       const st = fs.fstatSync(this.fd);
       if (st.size <= this.offset) {
@@ -594,7 +594,7 @@ class TailStream extends Readable {
   }
 
   destroy(error?: Error | null): this {
-    this.closed = true;
+    this.tailClosed = true;
     if (this.watcher) { try { this.watcher.close(); } catch {} this.watcher = null; }
     if (this.fd !== null) { try { fs.closeSync(this.fd); } catch {} this.fd = null; }
     if (!this.destroyed) super.destroy(error ?? undefined);
