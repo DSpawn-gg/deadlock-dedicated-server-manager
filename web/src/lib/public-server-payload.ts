@@ -3,7 +3,7 @@ import type { ContainerInfo, ContainerStats } from "./docker";
 import type { ServerQueryResult } from "./a2s";
 
 export type PublicServerStatus =
-  | "running" | "exited" | "sleeping" | "waking"
+  | "running" | "exited"
   | "created" | "restarting" | "dead" | "unknown";
 
 export interface PublicServer {
@@ -27,8 +27,6 @@ export interface BuildArgs {
   containerInfo: ContainerInfo | null;
   stats: ContainerStats | null;
   a2s: ServerQueryResult | null;
-  sleeping: boolean;
-  waking: boolean;
   now: Date;
 }
 
@@ -37,17 +35,13 @@ const KNOWN_CONTAINER_STATES = new Set([
 ]);
 
 export function buildPublicServerPayload(args: BuildArgs): PublicServer {
-  const { row, containerInfo, stats, a2s, sleeping, waking, now } = args;
+  const { row, containerInfo, stats, a2s, now } = args;
 
-  const baseStatus: PublicServerStatus = sleeping
-    ? "sleeping"
-    : waking
-      ? "waking"
-      : containerInfo
-        ? (KNOWN_CONTAINER_STATES.has(containerInfo.state)
-            ? (containerInfo.state as PublicServerStatus)
-            : "unknown")
-        : "unknown";
+  const baseStatus: PublicServerStatus = containerInfo
+    ? (KNOWN_CONTAINER_STATES.has(containerInfo.state)
+        ? (containerInfo.state as PublicServerStatus)
+        : "unknown")
+    : "unknown";
 
   const startedAt = containerInfo?.startedAt && containerInfo.startedAt !== ""
     ? containerInfo.startedAt

@@ -30,11 +30,6 @@ mock.module("@/lib/docker", () => ({
 mock.module("@/lib/a2s", () => ({
   queryServer: async () => ({ players: 3, maxPlayers: 24 }),
 }));
-mock.module("@/lib/autosleep", () => ({
-  isServerSleeping: () => false,
-  isServerWaking: () => false,
-}));
-mock.module("@/lib/init", () => ({ ensureInitialized: () => {} }));
 
 import { _resetForTests } from "@/lib/rate-limit";
 

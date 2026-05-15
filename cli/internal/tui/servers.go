@@ -11,8 +11,8 @@ import (
 	"github.com/Oskar-Sterner/deadlock-dedicated-server-manager/cli/internal/ddsm"
 )
 
-// NotificationMsg is sent by background systems (autosleep, etc.) via p.Send()
-// to display messages inside the TUI instead of writing to stdout.
+// NotificationMsg is sent by background systems via p.Send() to display
+// messages inside the TUI instead of writing to stdout.
 type NotificationMsg struct {
 	Text string
 }
@@ -135,10 +135,6 @@ func (m ServersModel) Update(msg tea.Msg) (ServersModel, tea.Cmd) {
 			if m.cursor < len(m.servers) {
 				return m, serverAction(m.servers[m.cursor].ID, "restart")
 			}
-		case key.Matches(msg, key.NewBinding(key.WithKeys("w"))):
-			if m.cursor < len(m.servers) {
-				return m, serverAction(m.servers[m.cursor].ID, "wake")
-			}
 		case key.Matches(msg, key.NewBinding(key.WithKeys("enter"))):
 			if m.cursor < len(m.servers) {
 				m.viewing = true
@@ -163,8 +159,6 @@ func serverAction(id, action string) tea.Cmd {
 			err = ddsm.StopServer(id)
 		case "restart":
 			err = ddsm.RestartServer(id)
-		case "wake":
-			err = ddsm.ManualWake(id)
 		}
 		if err != nil {
 			return serverActionDoneMsg{message: fmt.Sprintf("Error: %v", err)}
@@ -247,7 +241,7 @@ func (m ServersModel) View() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(HelpStyle.Render("  [c] create  [s] start  [x] stop  [r] restart  [w] wake  [enter] view server"))
+	b.WriteString(HelpStyle.Render("  [c] create  [s] start  [x] stop  [r] restart  [enter] view server"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -259,10 +253,6 @@ func statusAnsi(status string) string {
 		return "\033[1;38;2;74;222;128m" // green bold
 	case "exited", "stopped", "dead":
 		return "\033[1;38;2;239;68;68m" // red bold
-	case "sleeping":
-		return "\033[1;38;2;250;204;21m" // yellow bold
-	case "waking":
-		return "\033[1;38;2;96;165;250m" // blue bold
 	default:
 		return "\033[38;2;163;163;163m" // gray
 	}

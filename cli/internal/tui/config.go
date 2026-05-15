@@ -84,11 +84,6 @@ func (m ConfigModel) View() string {
 		row("Steam password:", strings.Repeat("*", len(cfg.SteamPassword)))
 	}
 	b.WriteString("\n")
-	row("Auto-sleep:", fmt.Sprintf("%v", cfg.AutoSleep.Enabled))
-	row("Idle timeout:", fmt.Sprintf("%ds", cfg.AutoSleep.IdleTimeout))
-	row("Poll interval:", fmt.Sprintf("%ds", cfg.AutoSleep.PollInterval))
-
-	b.WriteString("\n")
 
 	servers, _ := ddsm.ListServers()
 	if len(servers) > 0 {

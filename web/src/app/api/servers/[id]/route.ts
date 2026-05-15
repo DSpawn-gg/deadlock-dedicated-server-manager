@@ -3,7 +3,6 @@ import { requireAuth } from "@/lib/auth";
 import { getServer, updateServer, deleteServer } from "@/lib/servers";
 import { getContainerInfo, getContainerStats, startContainer, stopContainer, restartContainer } from "@/lib/docker";
 import { queryServer } from "@/lib/a2s";
-import { isServerSleeping, isServerWaking, manualWake, resetSleepState } from "@/lib/autosleep";
 import { SERVER_IP } from "@/lib/config";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -20,13 +19,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const a2s = info?.state === "running" ? await queryServer("127.0.0.1", server.port) : null;
 
-  const sleeping = isServerSleeping(server.id);
-  const waking = isServerWaking(server.id);
-
   return NextResponse.json({
     ...server,
     steam_pass: "***",
-    status: sleeping ? "sleeping" : waking ? "waking" : (info?.state ?? "unknown"),
+    status: info?.state ?? "unknown",
     startedAt: info?.startedAt ?? null,
     stats,
     players: a2s?.players ?? null,
@@ -53,19 +49,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     switch (action) {
       case "start":
-        resetSleepState(id);
         await startContainer(server.container_id);
         break;
       case "stop":
-        resetSleepState(id);
         await stopContainer(server.container_id);
         break;
       case "restart":
-        resetSleepState(id);
         await restartContainer(server.container_id);
-        break;
-      case "wake":
-        await manualWake(id);
         break;
       case "delete":
         await deleteServer(id, data.deleteFiles ?? false);

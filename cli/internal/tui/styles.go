@@ -38,11 +38,9 @@ var (
 			Align(lipgloss.Right).
 			PaddingRight(3)
 
-	StatusRunning  = lipgloss.NewStyle().Foreground(Green).Bold(true)
-	StatusStopped  = lipgloss.NewStyle().Foreground(lipgloss.Color("#ef4444")).Bold(true)
-	StatusSleeping = lipgloss.NewStyle().Foreground(Yellow).Bold(true)
-	StatusWaking   = lipgloss.NewStyle().Foreground(Blue).Bold(true)
-	StatusUnknown  = lipgloss.NewStyle().Foreground(Gray)
+	StatusRunning = lipgloss.NewStyle().Foreground(Green).Bold(true)
+	StatusStopped = lipgloss.NewStyle().Foreground(lipgloss.Color("#ef4444")).Bold(true)
+	StatusUnknown = lipgloss.NewStyle().Foreground(Gray)
 
 	SubTabActiveStyle = lipgloss.NewStyle().
 				Foreground(White).
@@ -69,10 +67,6 @@ func StatusStyle(status string) lipgloss.Style {
 		return StatusRunning
 	case "exited", "stopped", "dead":
 		return StatusStopped
-	case "sleeping":
-		return StatusSleeping
-	case "waking":
-		return StatusWaking
 	default:
 		return StatusUnknown
 	}

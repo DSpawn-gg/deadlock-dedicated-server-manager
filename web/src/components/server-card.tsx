@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, RotateCcw, Terminal, Settings, Copy, ExternalLink, CircleStop, Moon, Loader2 } from "lucide-react";
+import { Play, RotateCcw, Terminal, Settings, Copy, ExternalLink, CircleStop } from "lucide-react";
 
 interface ServerCardProps {
   id: string;
@@ -23,8 +23,6 @@ const STATUS_COLORS: Record<string, string> = {
   exited: "bg-neutral-500",
   created: "bg-amber-500",
   restarting: "bg-amber-500",
-  sleeping: "bg-indigo-500",
-  waking: "bg-amber-400",
   dead: "bg-[#eb3449]",
   unknown: "bg-neutral-600",
 };
@@ -118,19 +116,7 @@ export function ServerCard({ id, name, port, map, status, stats, onAction, playe
 
       {/* Action buttons */}
       <div className="flex items-center gap-2 mb-3">
-        {status === "sleeping" ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => onAction(id, "wake")}
-            className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 rounded font-medium transition-colors"
-          >
-            <Play size={13} fill="currentColor" /> Wake Up
-          </motion.button>
-        ) : status === "waking" ? (
-          <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-amber-400">
-            <Loader2 size={13} className="animate-spin" /> Waking up...
-          </span>
-        ) : status !== "running" ? (
+        {status !== "running" ? (
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => onAction(id, "start")}

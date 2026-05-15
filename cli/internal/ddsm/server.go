@@ -223,15 +223,6 @@ func GetServerStatus(server *ServerRow) *ServerStatus {
 		return status
 	}
 
-	if IsSleeping(server.ID) {
-		status.Status = "sleeping"
-		return status
-	}
-	if IsWaking(server.ID) {
-		status.Status = "waking"
-		return status
-	}
-
 	info, err := GetContainerInfo(server.ContainerID.String)
 	if err != nil {
 		return status
@@ -282,7 +273,6 @@ func StartServer(id string) error {
 			return fmt.Errorf("failed to mount overlay: %w", err)
 		}
 	}
-	ResetSleepState(id)
 
 	containerID, err := ensureContainerVolume(server)
 	if err != nil {
@@ -299,7 +289,6 @@ func StopServer(id string) error {
 	if !server.ContainerID.Valid {
 		return fmt.Errorf("server has no container: %s", id)
 	}
-	ResetSleepState(id)
 	return StopContainer(server.ContainerID.String)
 }
 
@@ -316,7 +305,6 @@ func RestartServer(id string) error {
 			return fmt.Errorf("failed to mount overlay: %w", err)
 		}
 	}
-	ResetSleepState(id)
 
 	containerID, recreated, err := ensureContainerVolumeStatus(server)
 	if err != nil {

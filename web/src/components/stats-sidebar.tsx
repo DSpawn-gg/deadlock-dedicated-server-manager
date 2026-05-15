@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Play, CircleStop, RotateCcw, Settings, Copy, ExternalLink, Loader2 } from "lucide-react";
+import { Play, CircleStop, RotateCcw, Settings, Copy, ExternalLink } from "lucide-react";
 
 interface StatsSidebarProps {
   serverId: string;
@@ -121,19 +121,7 @@ export function StatsSidebar({ serverId, onAction }: StatsSidebarProps) {
       </div>
 
       <div className="space-y-2">
-        {data.status === "sleeping" ? (
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onAction("wake")}
-            className="cursor-pointer w-full flex items-center justify-center gap-1.5 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 rounded font-medium transition-colors"
-          >
-            <Play size={14} fill="currentColor" /> Wake Up
-          </motion.button>
-        ) : data.status === "waking" ? (
-          <div className="w-full flex items-center justify-center gap-1.5 py-2 text-sm text-amber-400">
-            <Loader2 size={14} className="animate-spin" /> Waking up...
-          </div>
-        ) : data.status !== "running" ? (
+        {data.status !== "running" ? (
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => onAction("start")}

@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { listServers } from "@/lib/servers";
 import { getContainerInfo, getContainerStats } from "@/lib/docker";
 import { queryServer } from "@/lib/a2s";
-import { isServerSleeping, isServerWaking } from "@/lib/autosleep";
-import { ensureInitialized } from "@/lib/init";
 import { isPublicApiEnabled, SERVER_IP } from "@/lib/config";
 import { takeToken } from "@/lib/rate-limit";
 import { buildPublicServerPayload } from "@/lib/public-server-payload";
@@ -36,8 +34,6 @@ export async function GET(req: Request) {
     );
   }
 
-  ensureInitialized();
-
   const servers = listServers();
   const now = new Date();
 
@@ -52,10 +48,8 @@ export async function GET(req: Request) {
       const a2s = containerInfo?.state === "running"
         ? await queryServer("127.0.0.1", row.port)
         : null;
-      const sleeping = isServerSleeping(row.id);
-      const waking = isServerWaking(row.id);
       return buildPublicServerPayload({
-        row, containerInfo, stats, a2s, sleeping, waking, now,
+        row, containerInfo, stats, a2s, now,
       });
     }),
   );

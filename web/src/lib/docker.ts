@@ -115,7 +115,7 @@ function deleteProcRecord(slotId: string): void {
 // a signal — it just probes whether the kernel has a record of that pid.
 // Throws ESRCH (no such process) or EPERM (exists but inaccessible).
 // Microseconds, no powershell spawn — critical because GET /api/servers
-// and the autosleep poller both call this every few seconds.
+// calls this every few seconds.
 function isPidAlive(pid: number): boolean {
   if (!pid || pid <= 0) return false;
   try {
@@ -392,10 +392,10 @@ export async function removeContainer(containerId: string): Promise<void> {
 
 // --- Public API: read-side ------------------------------------------------
 
-// Per-slot caches. GET /api/servers and the autosleep poller both call
-// these for every slot; without a cache layer Windows fires a fresh
-// powershell.exe each call, which is 500ms-2s per spawn. With caches, a
-// burst of calls within the window returns instantly.
+// Per-slot caches. GET /api/servers calls these for every slot; without
+// a cache layer Windows fires a fresh powershell.exe each call, which is
+// 500ms-2s per spawn. With caches, a burst of calls within the window
+// returns instantly.
 interface CacheEntry<T> { value: T; expires: number }
 const infoCache = new Map<string, CacheEntry<ContainerInfo | null>>();
 const statsCache = new Map<string, CacheEntry<ContainerStats | null>>();

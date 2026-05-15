@@ -93,18 +93,6 @@ func MountOverlay(serverID string) error     { return nil }
 func UnmountOverlay(serverID string) error   { return nil }
 func MountAllOverlays()                      {}
 
-// ------- Autosleep stubs (deferred for Phase 1) ---------------------------
-
-func StartAutoSleep()                 {}
-func StopAutoSleep()                  {}
-func SetNotifier(fn func(string))     {}
-func IsSleeping(serverID string) bool { return false }
-func IsWaking(serverID string) bool   { return false }
-func ResetSleepState(serverID string) {}
-func ManualWake(serverID string) error {
-	return fmt.Errorf("autosleep is not supported on the Windows backend")
-}
-
 // ------- Docker-named stubs (no Docker on Windows) ------------------------
 
 type fakeDockerClient struct{}

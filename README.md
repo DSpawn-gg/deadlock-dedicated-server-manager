@@ -19,7 +19,7 @@ ddsm-project/
 ├── cli/                 # Go CLI + interactive TUI
 │   ├── cmd/ddsm/        # Entry point
 │   └── internal/
-│       ├── ddsm/        # Core modules (config, db, docker, rcon, servers, autosleep, doctor)
+│       ├── ddsm/        # Core modules (config, db, docker, rcon, servers, doctor)
 │       └── tui/         # Bubble Tea TUI (servers, console, config, tools tabs)
 ├── web/                 # Next.js web dashboard
 │   └── src/
@@ -110,10 +110,6 @@ rcon_password: "your_rcon_password"
 servers_dir: "/opt/deadlock-servers"
 docker_image: "deadlock-server"
 db_path: "~/.ddsm/ddsm.db"
-autosleep:
-  enabled: true
-  idle_timeout: 300
-  poll_interval: 15
 ```
 
 ### Web Dashboard

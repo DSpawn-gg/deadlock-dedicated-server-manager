@@ -3,27 +3,19 @@ package ddsm
 import (
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
 
-type AutoSleepConfig struct {
-	Enabled      bool `yaml:"enabled"`
-	IdleTimeout  int  `yaml:"idle_timeout"`
-	PollInterval int  `yaml:"poll_interval"`
-}
-
 type Config struct {
-	ServerIP      string          `yaml:"server_ip"`
-	RconPassword  string          `yaml:"rcon_password"`
-	ServersDir    string          `yaml:"servers_dir"`
-	DockerImage   string          `yaml:"docker_image"`
-	DbPath        string          `yaml:"db_path"`
-	BaseDir       string          `yaml:"base_dir"`
-	SteamLogin    string          `yaml:"steam_login"`
-	SteamPassword string          `yaml:"steam_password"`
-	AutoSleep     AutoSleepConfig `yaml:"autosleep"`
+	ServerIP      string `yaml:"server_ip"`
+	RconPassword  string `yaml:"rcon_password"`
+	ServersDir    string `yaml:"servers_dir"`
+	DockerImage   string `yaml:"docker_image"`
+	DbPath        string `yaml:"db_path"`
+	BaseDir       string `yaml:"base_dir"`
+	SteamLogin    string `yaml:"steam_login"`
+	SteamPassword string `yaml:"steam_password"`
 	// Optional CPU pinning for the gameserver container. Source 2 sim is
 	// single-threaded, so pinning to a small set of physical cores (skipping
 	// SMT siblings) eliminates cache-thrashing migration between cores.
@@ -42,11 +34,6 @@ func DefaultConfig() Config {
 		DockerImage:  "deadlock-server",
 		DbPath:       filepath.Join(home, "deadlock-dedicated-server-manager", "data", "manager.db"),
 		BaseDir:      "/opt/deadlock-base",
-		AutoSleep: AutoSleepConfig{
-			Enabled:      true,
-			IdleTimeout:  300,
-			PollInterval: 15,
-		},
 	}
 }
 
@@ -93,19 +80,6 @@ func LoadConfig() error {
 	}
 	if v := os.Getenv("DDSM_STEAM_PASSWORD"); v != "" {
 		Cfg.SteamPassword = v
-	}
-	if v := os.Getenv("DDSM_AUTOSLEEP_ENABLED"); v != "" {
-		Cfg.AutoSleep.Enabled = v == "true" || v == "1"
-	}
-	if v := os.Getenv("DDSM_AUTOSLEEP_IDLE_TIMEOUT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			Cfg.AutoSleep.IdleTimeout = n
-		}
-	}
-	if v := os.Getenv("DDSM_AUTOSLEEP_POLL_INTERVAL"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			Cfg.AutoSleep.PollInterval = n
-		}
 	}
 	if v := os.Getenv("DDSM_CPUSET_CPUS"); v != "" {
 		Cfg.CpusetCpus = v

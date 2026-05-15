@@ -22,8 +22,6 @@ describe("buildPublicServerPayload", () => {
       containerInfo: { state: "running", startedAt: "2026-05-07T18:04:11Z" },
       stats: { cpuPercent: 12.4, memoryMb: 1843, memoryLimitMb: 4096 },
       a2s: { players: 3, maxPlayers: 24 },
-      sleeping: false,
-      waking: false,
       now: new Date("2026-05-07T20:38:45Z"),
     });
 
@@ -51,8 +49,6 @@ describe("buildPublicServerPayload", () => {
       containerInfo: { state: "running", startedAt: "2026-05-07T18:04:11Z" },
       stats: { cpuPercent: 0, memoryMb: 0, memoryLimitMb: 1 },
       a2s: { players: 0, maxPlayers: 0 },
-      sleeping: false,
-      waking: false,
       now: new Date(),
     });
     const forbidden = ["password", "steam_login", "steam_pass", "steam_2fa",
@@ -62,41 +58,12 @@ describe("buildPublicServerPayload", () => {
     }
   });
 
-  it("reports sleeping status regardless of container state", () => {
-    const out = buildPublicServerPayload({
-      row: baseRow,
-      containerInfo: { state: "exited", startedAt: "2026-05-07T18:04:11Z" },
-      stats: null,
-      a2s: null,
-      sleeping: true,
-      waking: false,
-      now: new Date(),
-    });
-    expect(out.status).toBe("sleeping");
-    expect(out.players).toBe(0);
-  });
-
-  it("reports waking status before running", () => {
-    const out = buildPublicServerPayload({
-      row: baseRow,
-      containerInfo: { state: "exited", startedAt: "" },
-      stats: null,
-      a2s: null,
-      sleeping: false,
-      waking: true,
-      now: new Date(),
-    });
-    expect(out.status).toBe("waking");
-  });
-
   it("returns 'unknown' when there is no container info", () => {
     const out = buildPublicServerPayload({
       row: baseRow,
       containerInfo: null,
       stats: null,
       a2s: null,
-      sleeping: false,
-      waking: false,
       now: new Date(),
     });
     expect(out.status).toBe("unknown");
@@ -110,8 +77,6 @@ describe("buildPublicServerPayload", () => {
       containerInfo: { state: "running", startedAt: "2026-05-07T18:04:11Z" },
       stats: { cpuPercent: 5, memoryMb: 100, memoryLimitMb: 0 },
       a2s: null,
-      sleeping: false,
-      waking: false,
       now: new Date("2026-05-07T18:04:11Z"),
     });
     expect(out.memoryPercent).toBe(0);

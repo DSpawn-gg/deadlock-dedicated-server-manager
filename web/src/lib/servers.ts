@@ -2,7 +2,6 @@ import { v4 as uuid } from "uuid";
 import { getDb } from "./db";
 import { createContainer, removeContainer, startContainer } from "./docker";
 import { SERVERS_DIR } from "./config";
-import { resetSleepState } from "./autosleep";
 import fs from "fs";
 import path from "path";
 const START_SCRIPT_SRC = path.join(process.cwd(), "start.sh");
@@ -111,10 +110,6 @@ export async function updateServer(id: string, data: {
 }): Promise<ServerRow> {
   const server = getServer(id);
   if (!server) throw new Error("Server not found");
-
-  // Free any wake-listener bound to the server's port; otherwise the
-  // recreate below fails to bind with "address already in use".
-  resetSleepState(id);
 
   if (server.container_id) {
     try { await removeContainer(server.container_id); } catch { /* ok */ }
